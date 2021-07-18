@@ -1,0 +1,45 @@
+#!/usr/bin/env ruby
+require 'json'
+require_relative 'parser/example-configuration-file'
+
+def find_setting(schema, section_name, key)
+  schema.find do |section|
+    section[:name] == section_name
+  end[:settings].find do |setting|
+    setting[:key] == key
+  end
+end
+
+example_config_file = File.read 'data/example.conf'
+schema = SDDMConfigurationEditor::ExampleConfigurationFileParser.new.parse(example_config_file)
+find_setting(schema, 'Theme', 'Current')[:type] = 'theme'
+find_setting(schema, 'General', 'Numlock')[:type] = 'numlock'
+find_setting(schema, 'Autologin', 'Session')[:type] = 'session'
+File.open 'data/config-schema.json', 'w' do |file|
+  file.write JSON.pretty_generate(schema)
+end
+
+def _(string)
+  if string.empty?
+    ''
+  else
+    <<-"END"
+    ListElement {
+      name: QT_TR_NOOP("#{string}")
+    }
+    END
+  end
+end
+
+File.open 'config-strings.qml', 'w' do |file|
+  file << "ListModel {\n"
+  schema.map do |section|
+    file.write _(section[:name])
+    section[:settings].each do |setting|
+      file.write _(setting[:label])
+      file.write _(setting[:description])
+    end
+  end
+  file << "}"
+end
+
